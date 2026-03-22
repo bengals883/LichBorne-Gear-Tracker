@@ -6,6 +6,19 @@
 
 ---
 
+## Screenshots
+
+**Character Sheet (All Tab)**
+![Character Sheet](screenshots/Character_Sheet.png)
+
+**Class Tracker**
+![Class Tracker](screenshots/Class_Tracker.png)
+
+**Raid Planner**
+![Raid Planner](screenshots/Raid_Planner.png)
+
+---
+
 ## Purpose
 
 **LICHBORNE** is a standalone gear tracking addon built for AzerothCore WotLK private servers running the 3.3.5a client. It was designed for server owners and raid leaders who manage large rosters of playerbot characters and need to track gear progression, talent specs, raid assignments, and group composition — all in one window. Named after my WoW private server.
