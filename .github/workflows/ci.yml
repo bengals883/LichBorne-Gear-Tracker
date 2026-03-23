@@ -1,0 +1,25 @@
+name: Lua Syntax Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lua-check:
+    runs-on: ubuntu-latest
+    name: Validate Lua Syntax
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Lua
+        run: sudo apt-get install -y lua5.1
+
+      - name: Check Lua syntax
+        run: |
+          echo "Checking LichborneTracker.lua..."
+          luac5.1 -p LichborneTracker/LichborneTracker.lua
+          echo "✅ Lua syntax OK!"

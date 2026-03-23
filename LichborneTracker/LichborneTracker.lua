@@ -1678,16 +1678,21 @@ local function BuildRaidFrame(parent, fl)
         pasteConfirm:Hide()
         if not rosterClipboard then return end
         local roster, size = GetCurrentRoster()
+        -- Only paste up to destination size, clear any slots beyond it
         for i = 1, 40 do
-            local src = rosterClipboard[i] or {}
-            roster[i] = {
-                name  = src.name  or "",
-                cls   = src.cls   or "",
-                spec  = src.spec  or "",
-                gs    = src.gs    or 0,
-                role  = src.role  or "",
-                notes = src.notes or "",
-            }
+            if i <= size then
+                local src = rosterClipboard[i] or {}
+                roster[i] = {
+                    name  = src.name  or "",
+                    cls   = src.cls   or "",
+                    spec  = src.spec  or "",
+                    gs    = src.gs    or 0,
+                    role  = src.role  or "",
+                    notes = src.notes or "",
+                }
+            else
+                roster[i] = {name="", cls="", spec="", gs=0, role="", notes=""}
+            end
         end
         -- Clear clipboard and hide paste button
         rosterClipboard = nil
