@@ -2,7 +2,7 @@
 
 **A World of Warcraft WotLK 3.3.5a Addon for AzerothCore Private Servers**
 
-**Version 1.73**
+**Version 1.74**
 
 ---
 
@@ -16,8 +16,8 @@
 
 ## Recent Changes
 
+- **Minimap icon fix (improved)** — Added a native fallback minimap button based on DBM's implementation that activates automatically when LibDBIcon is unavailable, guaranteeing the icon appears on every machine regardless of lib compatibility. Bundled libs updated to DBM-compatible versions.
 - **Minimap icon updated** — The minimap button now uses a book texture for a cleaner look.
-- **Minimap icon fix** — Fixed an issue where the minimap icon would not appear on fresh installs without other broker addons present. Bundled libs have been replaced with compatible versions and registration now happens at the correct load stage.
 - **T0 raid dropdown crash fix** — Fixed a nil error when opening the raid dropdown while Tier 0 (5-Man) was selected.
 - **Add Group scan compatibility fix** — Group scan buttons now bind the local scan-state helper correctly on 3.3.5a, preventing `SetScanActive` nil errors reported through addon hook stacks such as BugSack or ElvUI.
 - **Addon load compatibility fix** — Bundled `CallbackHandler-1.0` is now loaded before `LibDataBroker-1.1`, and startup no longer hard-fails if the minimap broker stack is unavailable.
