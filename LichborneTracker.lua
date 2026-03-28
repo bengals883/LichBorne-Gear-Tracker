@@ -4693,7 +4693,7 @@ local function OnFirstShow()
     infoText:SetText(
         "|cffd4af37LICHBORNE|r\n" ..
         "|cffd4af37Gear Tracker & Raid Planner|r\n" ..
-        "|cffd4af37v1.72|r\n" ..
+        "|cffd4af37v1.73|r\n" ..
         "\n" ..
         "|cffaaaaaaQuestions & Support:|r\n" ..
         "|cffd4af37lichborne.wow|r\n" ..
@@ -4784,7 +4784,7 @@ local function BuildFrameBG()
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -12)
     title:SetPoint("TOPRIGHT", f, "TOPRIGHT", -280, -12)
     title:SetJustifyH("LEFT")
-    title:SetText("|cffC69B3ALICHBORNE|r  —  Gear Tracker  |cffaaaaaa v1.72|r")
+    title:SetText("|cffC69B3ALICHBORNE|r  —  Gear Tracker  |cffaaaaaa v1.73|r")
     local closeBtn = CreateFrame("Button", "LichborneCloseBtn", f, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", 2, 2)
     closeBtn:SetScript("OnClick", function() f:Hide() end)
@@ -4927,25 +4927,9 @@ function LichborneTracker_Open()
 end
 
 -- ── Minimap button ────────────────────────────────────────────
-local libStub = _G.LibStub
-local LichborneMinimapIcon = libStub and libStub("LibDBIcon-1.0", true)
-local LichborneDataBroker = libStub and libStub("LibDataBroker-1.1", true)
-local miniLDB = LichborneDataBroker and LichborneDataBroker:NewDataObject("LichborneTracker", {
-    type = "launcher",
-    icon = "Interface\\Icons\\INV_Misc_Note_01",
-    OnClick = function(self, btn)
-        if LichborneTrackerFrame and LichborneTrackerFrame:IsShown() then
-            LichborneTrackerFrame:Hide()
-        else
-            LichborneTracker_Open()
-        end
-    end,
-    OnTooltipShow = function(tooltip)
-        tooltip:AddLine("|cffC69B3ALichborne Gear Tracker|r")
-        tooltip:AddLine("Click to open / close", 1,1,1)
-        tooltip:AddLine("Drag to reposition", 0.7,0.7,0.7)
-    end,
-})
+-- Libs are looked up inside ADDON_LOADED to guarantee they are fully registered
+local LichborneMinimapIcon
+local miniLDB
 
 -- ── Initialization ────────────────────────────────────────────
 -- ESC key support: insert into UISpecialFrames at Lua load time so WoW hides the
@@ -4958,6 +4942,26 @@ do
     initFrame:SetScript("OnEvent", function(_, _, addonName)
         if addonName == "LichborneTracker" then
             MigrateGearField()
+            -- Look up libs here to guarantee they are fully registered by all addons
+            local libStub = _G.LibStub
+            LichborneMinimapIcon = libStub and libStub("LibDBIcon-1.0", true)
+            local LichborneDataBroker = libStub and libStub("LibDataBroker-1.1", true)
+            miniLDB = LichborneDataBroker and LichborneDataBroker:NewDataObject("LichborneTracker", {
+                type = "launcher",
+                icon = "Interface\\Icons\\INV_Misc_Book_11",
+                OnClick = function(self, btn)
+                    if LichborneTrackerFrame and LichborneTrackerFrame:IsShown() then
+                        LichborneTrackerFrame:Hide()
+                    else
+                        LichborneTracker_Open()
+                    end
+                end,
+                OnTooltipShow = function(tooltip)
+                    tooltip:AddLine("|cffC69B3ALichborne Gear Tracker|r")
+                    tooltip:AddLine("Click to open / close", 1,1,1)
+                    tooltip:AddLine("Drag to reposition", 0.7,0.7,0.7)
+                end,
+            })
             -- Register minimap icon with its own SavedVariable (so position persists correctly)
             if type(LichborneMinimapIconDB) ~= "table" then
                 LichborneMinimapIconDB = {}
