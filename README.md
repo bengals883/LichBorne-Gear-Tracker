@@ -2,7 +2,7 @@
 
 **A World of Warcraft WotLK 3.3.5a Addon for AzerothCore Private Servers that tracks gear score, iLvL, gear slots, specs, and raid composition for your entire playerbot roster.**
 
-**Version 1.75**
+**Version 1.76**
 
 ---
 
@@ -14,6 +14,17 @@
 
 ---
 
+## Recent Changes (v1.76)
+
+- **Global variable audit** — Converted `activeTab`, four UI state vars, `RefreshRaidRows`, `RefreshAllRows`, `UpdateSummary`, and `RH2` from accidental globals to proper `local` declarations, eliminating addon conflict risk
+- **Tier 0 color fix** — Tier 0 dropdown now correctly displays its silver-blue color instead of rendering white (key `18` lookup was previously resolving to `nil`)
+- **Inspect timer bug fix** — `inspectWait` moved to module top so the GS scan timer resets correctly; previously the reset wrote to a different variable and the timer never actually cleared
+- **Deduplicated `classMap`** — Three identical inline `classMap` tables replaced with a single module-level `CLASS_TOKEN_MAP` constant
+
+(See CHANGELOG.md for full version history)
+
+---
+
 ## Recent Changes (v1.75)
 
 - **Minimap icon fix (improved)** — Fixed display issue on machines where bundled libs failed to load silently
@@ -21,8 +32,6 @@
 - **Updated libs** — Replaced bundled libs with DBM-compatible versions for wider client support
 - **Load order fix** — Moved lib registration into ADDON_LOADED for correct initialization
 - **Minimap icon updated** — Changed to book texture (INV_Misc_Book_11) for a cleaner look
-
-(See CHANGELOG.md for full version history)
 
 ---
 

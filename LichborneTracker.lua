@@ -380,6 +380,13 @@ local ROLE_DEFS = {
 local ROLE_BY_KEY = {}
 for _, rd in ipairs(ROLE_DEFS) do ROLE_BY_KEY[rd.key] = rd end
 
+-- Module-level class token -> class name map (used by Add Target, Add Group, etc.)
+local CLASS_TOKEN_MAP = {
+    DEATHKNIGHT="Death Knight", DRUID="Druid", HUNTER="Hunter",
+    MAGE="Mage", PALADIN="Paladin", PRIEST="Priest", ROGUE="Rogue",
+    SHAMAN="Shaman", WARLOCK="Warlock", WARRIOR="Warrior"
+}
+
 -- Raid abbreviations for tooltips
 local RAID_ABBR = {
     ["Molten Core"]="MC", ["Onyxia's Lair"]="Ony", ["Blackwing Lair"]="BWL",
@@ -415,7 +422,7 @@ local CLASS_ICONS = {
     ["Warrior"]      = "Interface\\Icons\\Ability_Warrior_BattleShout",
 }
 
-activeTab = "All"
+local activeTab = "All"
 local classPage = {}   -- classPage[cls] = current page (1-3)
 local allPage = 1      -- current page for All tab
 local tabButtons = {}
@@ -427,12 +434,16 @@ local allRowFrames = {}   -- all tab row frames (60 slots)
 -- Raid drag state (module-level so RefreshRaidRows can reset)
 local raidDragSource = nil
 local raidDragOver   = nil
-LichborneAllCountLabels = nil
-LichborneRosterIlvlLabel = nil
-LichborneRosterGsLabel = nil
+local LichborneAllCountLabels = nil
+local LichborneRosterIlvlLabel = nil
+local LichborneRosterGsLabel = nil
+local LichborneRaidCountLabels = nil  -- populated in BuildRaidFrame, read in RefreshRaidRows
+local inspectWait = 0   -- shared timer for CalcGS and button callbacks
 local allFrameBuilt = false
 local LichborneAllFrame = nil
-RefreshAllRows = nil  -- will be set after definition
+local RefreshAllRows = nil  -- will be set after definition
+local RefreshRaidRows       -- forward declaration
+local UpdateSummary         -- forward declaration
 local raidFrameBuilt = false
 local setupDone = false
 local dragSourceRow = nil   -- row frame being dragged
@@ -2059,7 +2070,8 @@ local function BuildRaidFrame(parent, fl)
 
     local function UpdateTierDD()
         local t = LichborneTrackerDB.raidTier or 1
-        local c = TIER_COLORS[t]
+        local colorKey = (t == 0) and 18 or t
+        local c = TIER_COLORS[colorKey]
         local hex = c and string.format("|cff%02x%02x%02x",math.floor(c.r*255),math.floor(c.g*255),math.floor(c.b*255)) or "|cffffffff"
         local label = (TIER_LABELS[t] or ""):match("^T%d+ %— (.+)") or ""
         tierDD.lbl:SetText(hex.."T"..t.."  "..label.."  v|r")
@@ -2128,7 +2140,7 @@ local function BuildRaidFrame(parent, fl)
             local mb = CreateFrame("Button",nil,raidDDMenu)
             mb:SetSize(256,20); mb:SetPoint("TOPLEFT",raidDDMenu,"TOPLEFT",2,-2-(idx-1)*22)
             local mbbg=mb:CreateTexture(nil,"BACKGROUND"); mbbg:SetAllPoints(mb)
-            local c=TIER_COLORS[t] or TIER_COLORS[1]; mbbg:SetTexture(c.r*0.25,c.g*0.25,c.b*0.25,1)
+            local ck=TIER_COLORS[(t==0) and 18 or t] or TIER_COLORS[1]; local c=ck; mbbg:SetTexture(c.r*0.25,c.g*0.25,c.b*0.25,1)
             mb:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight","ADD")
             local mblbl=mb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); mblbl:SetAllPoints(mb); mblbl:SetJustifyH("CENTER")
             mblbl:SetText("|cffffffff"..rd[1].."|r  |cffaaaaaa("..rd[2].." players)|r")
@@ -2741,7 +2753,7 @@ local function BuildRaidFrame(parent, fl)
     hdrRow2:SetPoint("TOPLEFT",LichborneRaidFrame,"TOPLEFT",COL2_X,-26)
     hdrRow2:SetSize(535,18); hdrRow2:SetFrameLevel(fl+11)
     local hdrBg2=hdrRow2:CreateTexture(nil,"BACKGROUND"); hdrBg2:SetAllPoints(hdrRow2); hdrBg2:SetTexture(0.08,0.20,0.42,1)
-    RH2 = function(lbl,x,w)
+    local RH2 = function(lbl,x,w)
         local fs=hdrRow2:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
         fs:SetPoint("LEFT",hdrRow2,"LEFT",x,0); fs:SetWidth(w); fs:SetJustifyH("CENTER")
         fs:SetText("|cffd4af37"..lbl.."|r")
@@ -3925,12 +3937,7 @@ local function OnFirstShow()
 
         local targetName = UnitName("target")
         local _, targetClass = UnitClass("target")
-        local classMap = {
-            DEATHKNIGHT="Death Knight", DRUID="Druid", HUNTER="Hunter",
-            MAGE="Mage", PALADIN="Paladin", PRIEST="Priest", ROGUE="Rogue",
-            SHAMAN="Shaman", WARLOCK="Warlock", WARRIOR="Warrior"
-        }
-        local cls = targetClass and classMap[targetClass]
+        local cls = targetClass and CLASS_TOKEN_MAP[targetClass]
         if not cls then
             LichborneAddStatus:SetText("|cffff4444Unknown class: "..(targetClass or "nil").."|r")
             return
@@ -4049,16 +4056,10 @@ local function OnFirstShow()
             return
         end
 
-        local classMap = {
-            DEATHKNIGHT="Death Knight", DRUID="Druid", HUNTER="Hunter",
-            MAGE="Mage", PALADIN="Paladin", PRIEST="Priest", ROGUE="Rogue",
-            SHAMAN="Shaman", WARLOCK="Warlock", WARRIOR="Warrior"
-        }
-
         local added, skipped = 0, 0
         local toProcess = {}
         for _, m in ipairs(members) do
-            local cls = m.clsKey and classMap[m.clsKey]
+            local cls = m.clsKey and CLASS_TOKEN_MAP[m.clsKey]
             if cls then
                 toProcess[#toProcess+1] = {name=m.name, cls=cls}
             end
@@ -4136,11 +4137,6 @@ local function OnFirstShow()
 
     -- ── Shared helper: silently add all group members to tracker ──
     local function AddGroupMembers(onDone)
-        local classMap = {
-            DEATHKNIGHT="Death Knight", DRUID="Druid", HUNTER="Hunter",
-            MAGE="Mage", PALADIN="Paladin", PRIEST="Priest", ROGUE="Rogue",
-            SHAMAN="Shaman", WARLOCK="Warlock", WARRIOR="Warrior"
-        }
         local playerName = UnitName("player")
         local members = {}
         local _, selfClsKey = UnitClass("player")
@@ -4166,7 +4162,7 @@ local function OnFirstShow()
         end
         local toProcess = {}
         for _, m in ipairs(members) do
-            local cls = m.clsKey and classMap[m.clsKey]
+            local cls = m.clsKey and CLASS_TOKEN_MAP[m.clsKey]
             if cls then toProcess[#toProcess+1] = {name=m.name, cls=cls} end
         end
         if #toProcess == 0 then
@@ -4693,7 +4689,7 @@ local function OnFirstShow()
     infoText:SetText(
         "|cffd4af37LICHBORNE|r\n" ..
         "|cffd4af37Gear Tracker & Raid Planner|r\n" ..
-        "|cffd4af37v1.75|r\n" ..
+        "|cffd4af37v1.76|r\n" ..
         "\n" ..
         "|cffaaaaaaQuestions & Support:|r\n" ..
         "|cffd4af37lichborne.wow|r\n" ..
@@ -4784,7 +4780,7 @@ local function BuildFrameBG()
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -12)
     title:SetPoint("TOPRIGHT", f, "TOPRIGHT", -280, -12)
     title:SetJustifyH("LEFT")
-    title:SetText("|cffC69B3ALICHBORNE|r  —  Gear Tracker  |cffaaaaaa v1.75|r")
+    title:SetText("|cffC69B3ALICHBORNE|r  —  Gear Tracker  |cffaaaaaa v1.76|r")
     local closeBtn = CreateFrame("Button", "LichborneCloseBtn", f, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", 2, 2)
     closeBtn:SetScript("OnClick", function() f:Hide() end)
@@ -4926,10 +4922,88 @@ function LichborneTracker_Open()
     RefreshRows()
 end
 
--- ── Minimap button ────────────────────────────────────────────
--- Libs are looked up inside ADDON_LOADED to guarantee they are fully registered
-local LichborneMinimapIcon
-local miniLDB
+-- ── Minimap button (standalone – zero library dependency) ──────────────────
+-- Built entirely with standard WoW frame API.  Position is saved in
+-- LichborneMinimapIconDB.minimapPos (degrees, 0-360) and restored at login.
+local minimapBtn = CreateFrame("Button", "LichborneMinimapButton", Minimap)
+minimapBtn:SetWidth(31); minimapBtn:SetHeight(31)
+minimapBtn:SetFrameStrata("MEDIUM")
+minimapBtn:SetFrameLevel(8)
+minimapBtn:RegisterForClicks("anyUp")
+minimapBtn:RegisterForDrag("LeftButton")
+minimapBtn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+
+do
+    local overlay = minimapBtn:CreateTexture(nil, "OVERLAY")
+    overlay:SetWidth(53); overlay:SetHeight(53)
+    overlay:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    overlay:SetPoint("TOPLEFT")
+
+    local bg = minimapBtn:CreateTexture(nil, "BACKGROUND")
+    bg:SetWidth(20); bg:SetHeight(20)
+    bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
+    bg:SetPoint("TOPLEFT", 7, -5)
+
+    local icon = minimapBtn:CreateTexture(nil, "ARTWORK")
+    icon:SetWidth(20); icon:SetHeight(20)
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Book_11")
+    icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+    icon:SetPoint("TOPLEFT", 7, -5)
+    minimapBtn.icon = icon
+end
+
+local function LichborneUpdateMinimapPos()
+    local angle = math.rad(
+        (LichborneMinimapIconDB and LichborneMinimapIconDB.minimapPos) or 225
+    )
+    minimapBtn:ClearAllPoints()
+    minimapBtn:SetPoint("CENTER", Minimap, "CENTER",
+        math.cos(angle) * 80, math.sin(angle) * 80)
+end
+
+minimapBtn:SetScript("OnClick", function(self, btn)
+    if LichborneTrackerFrame and LichborneTrackerFrame:IsShown() then
+        LichborneTrackerFrame:Hide()
+    else
+        LichborneTracker_Open()
+    end
+end)
+
+minimapBtn:SetScript("OnDragStart", function(self)
+    self.icon:SetTexCoord(0, 1, 0, 1)
+    self:LockHighlight()
+    self:SetScript("OnUpdate", function(self)
+        local mx, my = Minimap:GetCenter()
+        local px, py = GetCursorPosition()
+        local scale = Minimap:GetEffectiveScale()
+        px, py = px / scale, py / scale
+        if LichborneMinimapIconDB then
+            LichborneMinimapIconDB.minimapPos =
+                math.deg(math.atan2(py - my, px - mx)) % 360
+        end
+        LichborneUpdateMinimapPos()
+    end)
+end)
+
+minimapBtn:SetScript("OnDragStop", function(self)
+    self:SetScript("OnUpdate", nil)
+    self:UnlockHighlight()
+    self.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+end)
+
+minimapBtn:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine("|cffC69B3ALichborne Gear Tracker|r")
+    GameTooltip:AddLine("Click to open / close", 1, 1, 1)
+    GameTooltip:AddLine("Drag to reposition", 0.7, 0.7, 0.7)
+    GameTooltip:Show()
+end)
+
+minimapBtn:SetScript("OnLeave", function(self)
+    GameTooltip:Hide()
+end)
+
+minimapBtn:Hide()  -- hidden until PLAYER_LOGIN positions it
 
 -- ── Initialization ────────────────────────────────────────────
 -- ESC key support: insert into UISpecialFrames at Lua load time so WoW hides the
@@ -4939,37 +5013,12 @@ table.insert(_G["UISpecialFrames"], "LichborneTrackerFrame")
 do
     local initFrame = CreateFrame("Frame")
     initFrame:RegisterEvent("ADDON_LOADED")
-    initFrame:SetScript("OnEvent", function(_, _, addonName)
-        if addonName == "LichborneTracker" then
+    initFrame:RegisterEvent("PLAYER_LOGIN")
+    initFrame:SetScript("OnEvent", function(self, event, addonName)
+        if event == "ADDON_LOADED" and addonName == "LichborneTracker" then
+            -- DB migration and roster repair run at ADDON_LOADED so SavedVars
+            -- are available as early as possible.
             MigrateGearField()
-            -- Look up libs here to guarantee they are fully registered by all addons
-            local libStub = _G.LibStub
-            LichborneMinimapIcon = libStub and libStub("LibDBIcon-1.0", true)
-            local LichborneDataBroker = libStub and libStub("LibDataBroker-1.1", true)
-            miniLDB = LichborneDataBroker and LichborneDataBroker:NewDataObject("LichborneTracker", {
-                type = "launcher",
-                icon = "Interface\\Icons\\INV_Misc_Book_11",
-                OnClick = function(self, btn)
-                    if LichborneTrackerFrame and LichborneTrackerFrame:IsShown() then
-                        LichborneTrackerFrame:Hide()
-                    else
-                        LichborneTracker_Open()
-                    end
-                end,
-                OnTooltipShow = function(tooltip)
-                    tooltip:AddLine("|cffC69B3ALichborne Gear Tracker|r")
-                    tooltip:AddLine("Click to open / close", 1,1,1)
-                    tooltip:AddLine("Drag to reposition", 0.7,0.7,0.7)
-                end,
-            })
-            -- Register minimap icon with its own SavedVariable (so position persists correctly)
-            if type(LichborneMinimapIconDB) ~= "table" then
-                LichborneMinimapIconDB = {}
-            end
-            if LichborneMinimapIcon and miniLDB then
-                LichborneMinimapIcon:Register("LichborneTracker", miniLDB, LichborneMinimapIconDB)
-                LichborneMinimapIcon:Refresh("LichborneTracker", LichborneMinimapIconDB)
-            end
             -- Repair all raid rosters: fill any nil/missing slots
             if LichborneTrackerDB and LichborneTrackerDB.raidRosters then
                 for key, roster in pairs(LichborneTrackerDB.raidRosters) do
@@ -4989,6 +5038,19 @@ do
                         end
                     end
                 end
+            end
+        elseif event == "PLAYER_LOGIN" then
+            -- Position and show the minimap button now that SavedVars are loaded.
+            self:UnregisterEvent("PLAYER_LOGIN")
+            if type(LichborneMinimapIconDB) ~= "table" then
+                LichborneMinimapIconDB = {}
+            end
+            if not LichborneMinimapIconDB.minimapPos then
+                LichborneMinimapIconDB.minimapPos = 225
+            end
+            LichborneUpdateMinimapPos()
+            if not LichborneMinimapIconDB.hide then
+                minimapBtn:Show()
             end
         end
     end)
@@ -5101,6 +5163,7 @@ LichborneInspectRow = nil
 LichborneInspectUnit = "target"  -- unit token for current inspect
 local LichborneInspectRetries = 0  -- retry counter for empty gear data
 local INSPECT_MAX_RETRIES = 3      -- max silent retries before giving up
+-- inspectWait declared at module top (shared with button callbacks in OnFirstShow)
 
 local function CalcGS()
     local di = LichborneInspectTarget
@@ -5284,7 +5347,7 @@ local function CalcGS()
 end
 
 local inspectFrame = CreateFrame("Frame")
-local inspectWait = 0
+-- inspectWait declared above CalcGS so the reset inside CalcGS targets the same local
 inspectFrame:SetScript("OnUpdate", function(_, elapsed)
     if not LichborneInspectTarget then return end
     inspectWait = inspectWait + elapsed
