@@ -15,7 +15,7 @@
 \---
 
 ## Recent Changes (v2.2)
-* **Fixed Titans grip bug (Duel 2h weapons not displaying correctly)
+Fixed Titans grip bug (Duel 2h weapons not displaying correctly)
 
 
 ## Recent Changes (v2.1)
