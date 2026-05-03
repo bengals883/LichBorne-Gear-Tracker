@@ -5661,7 +5661,7 @@ local function OnFirstShow()
     infoText:SetWidth(160)
     infoText:SetJustifyH("CENTER"); infoText:SetJustifyV("MIDDLE")
     infoText:SetText(
-        "|cffd4af37LICHBORNE  —  v2.1|r\n" ..
+        "|cffd4af37LICHBORNE  —  v2.2|r\n" ..
         "|cffaaaaaaGear Tracker & Raid Planner|r\n" ..
         "|cffaaaaaaWotLK 3.3.5a  ·  AzerothCore + PlayerBots|r\n" ..
         "\n" ..
@@ -6656,7 +6656,7 @@ local function BuildFrameBG()
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -12)
     title:SetPoint("TOPRIGHT", f, "TOPRIGHT", -280, -12)
     title:SetJustifyH("LEFT")
-    title:SetText("|cffC69B3ALICHBORNE|r  —  Gear Tracker  |cffaaaaaa v2.1|r")
+    title:SetText("|cffC69B3ALICHBORNE|r  —  Gear Tracker  |cffaaaaaa v2.2|r")
     local closeBtn = CreateFrame("Button", "LichborneCloseBtn", f, "UIPanelCloseButton")
     closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", 2, 2)
     closeBtn:SetScript("OnClick", function() f:Hide() end)
@@ -7143,10 +7143,12 @@ local function CalcGS()
             mhIs2H = true
         end
     end
+    local rowCls = LichborneTrackerDB.rows[di] and LichborneTrackerDB.rows[di].cls or ""
 
     for g, slot in ipairs(slots) do
-        -- slot 17 = OH; if MH is 2H, WoW mirrors the same link into slot 17 — blank it out
-        if slot == 17 and mhIs2H then
+        -- slot 17 = OH; if MH is 2H and class is not Warrior, blank it (server mirrors MH link into slot 17)
+        -- Warriors are excluded because slot 17 returns nil for single-2H and a real weapon for Titan's Grip
+        if slot == 17 and mhIs2H and rowCls ~= "Warrior" then
             LichborneTrackerDB.rows[di].ilvl[g] = 0
             LichborneTrackerDB.rows[di].ilvlLink[g] = ""
             slotDiag[g] = string.format("%-5s", SLOT_ABBR[g]).."(s17)=|cff888888[2H-OH]|r"
